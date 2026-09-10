@@ -16,7 +16,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Inventra — Inventory Management System",
-  description: "Sistem Manajemen Inventaris & Pergudangan ",
+  description: "Sistem Manajemen Inventaris & Pergudangan",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
