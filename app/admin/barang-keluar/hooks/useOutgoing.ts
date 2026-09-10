@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase, uploadProductImage } from "@/lib/supabase";
+import { supabase, uploadProductImage, deleteStorageFile } from "@/lib/supabase";
 import { OutgoingTransaction, OutgoingFormData } from "../../types/outgoing.types";
 
 export function useOutgoing() {
@@ -145,6 +145,10 @@ export function useOutgoing() {
           })
           .eq("id", it.id);
       }
+    }
+
+    if (targetTx?.proof_image_url) {
+      await deleteStorageFile(targetTx.proof_image_url, "products");
     }
 
     const { error: delErr } = await supabase.from("outgoing_transactions").delete().eq("id", id);

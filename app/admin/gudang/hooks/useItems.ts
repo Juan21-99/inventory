@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase, uploadProductImage } from "@/lib/supabase";
+import { supabase, uploadProductImage, deleteStorageFile } from "@/lib/supabase";
 import { InventoryItem, ItemFormData } from "../../types/item.types";
 
 export function useItems() {
@@ -170,11 +170,20 @@ export function useItems() {
 
   // Update existing item in Supabase
   const updateItem = async (id: string, formData: ItemFormData): Promise<InventoryItem> => {
+    const existingItem = items.find((it) => it.id === id);
     let imageUrl = formData.imageUrl || null;
 
     if (formData.imageFile) {
       const uploaded = await uploadProductImage(formData.imageFile);
-      if (uploaded) imageUrl = uploaded;
+      if (uploaded) {
+        if (existingItem?.image_url && existingItem.image_url !== uploaded) {
+          await deleteStorageFile(existingItem.image_url, "products");
+        }
+        imageUrl = uploaded;
+      }
+    } else if (formData.imageUrl === null && existingItem?.image_url) {
+      await deleteStorageFile(existingItem.image_url, "products");
+      imageUrl = null;
     }
 
     const payload = {
@@ -226,6 +235,11 @@ export function useItems() {
 
   // Delete item from Supabase
   const deleteItem = async (id: string): Promise<boolean> => {
+    const itemToDelete = items.find((it) => it.id === id);
+    if (itemToDelete?.image_url) {
+      await deleteStorageFile(itemToDelete.image_url, "products");
+    }
+
     const { error: delErr } = await supabase.from("items").delete().eq("id", id);
     if (delErr) {
       throw delErr;

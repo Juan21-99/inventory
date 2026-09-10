@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase, uploadAvatar } from "@/lib/supabase";
+import { supabase, uploadAvatar, deleteStorageFile } from "@/lib/supabase";
 
 export interface SystemUser {
   id: string;
@@ -134,11 +134,15 @@ export function useUsers() {
     updates: Partial<SystemUser>,
     avatarFile?: File | null
   ) => {
+    const existingUser = users.find((u) => u.id === id);
     const finalUpdates = { ...updates };
 
     if (avatarFile) {
       const uploaded = await uploadAvatar(avatarFile, `user-${id}-${Date.now()}`);
       if (uploaded) {
+        if (existingUser?.avatar_url && existingUser.avatar_url !== uploaded) {
+          await deleteStorageFile(existingUser.avatar_url, "avatars");
+        }
         finalUpdates.avatar_url = uploaded;
       }
     }
@@ -158,6 +162,11 @@ export function useUsers() {
 
   // Delete user account
   const deleteUser = async (id: string) => {
+    const targetUser = users.find((u) => u.id === id);
+    if (targetUser?.avatar_url) {
+      await deleteStorageFile(targetUser.avatar_url, "avatars");
+    }
+
     const res = await fetch(`/api/admin/users?id=${id}`, {
       method: "DELETE",
     });
