@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+body {
+  @apply antialiased;
+}
+
+/* Animation Utilities override/polyfill for Tailwind v4 */
+@layer utilities {
+  .animate-in {
+    /* Menggunakan satu animasi gabungan */
+    animation-name: enterAnimation;
+    animation-duration: 1000ms;
+    animation-fill-mode: forwards;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 0;
+  }
+
+  /* Helper classes (optional, if we want specific overrides, but animate-in handles all currently) */
+  .fade-in,
+  .zoom-in-95,
+  .slide-in-from-bottom-8 {
+    /* No-op: animate-in trigger the combined animation */
+  }
+
+  /* Stagger Delays */
+  .delay-0 {
+    animation-delay: 0ms;
+  }
+  .delay-150 {
+    animation-delay: 150ms;
+  }
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+  .delay-500 {
+    animation-delay: 500ms;
+  }
+  .delay-700 {
+    animation-delay: 700ms;
+  }
+  .delay-1000 {
+    animation-delay: 1000ms;
+  }
+
+  .fill-mode-both {
+    animation-fill-mode: both;
+  }
+
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}
+
+@keyframes enterAnimation {
+  0% {
+    opacity: 0;
+    transform: translateY(2rem) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* --- DEVICE BLOCKING LOGIC --- */
+
+/* 1. ADMIN BLOCKER: Block Mobile (Default Blocked, Allow >768px & >600px) */
+.admin-blocker {
+  display: flex;
+}
+.admin-content {
+  display: none;
+}
+
+@media (min-width: 768px) and (min-height: 600px) {
+  .admin-blocker {
+    display: none;
+  }
+  .admin-content {
+    display: flex;
+  }
+}
+
+/* 2. CUSTOMER BLOCKER: Block Laptop/PC (Default Allowed, Block >1024px) */
+.customer-blocker {
+  display: none;
+} /* Default hide blocker (HP ok) */
+.customer-content {
+  display: block;
+} /* Default show content */
+
+@media (min-width: 1025px) {
+  /* Laptop/PC mulai dari 1024px, kita blok di 1025px */
+  .customer-blocker {
+    display: flex;
+  } /* Show overlay */
+  .customer-content {
+    display: none;
+  } /* Hide app */
+}

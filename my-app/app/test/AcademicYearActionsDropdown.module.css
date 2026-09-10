@@ -1,0 +1,8 @@
+.actionsContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdownWrapper {
+  pointer-events: auto;
+}
