@@ -120,7 +120,7 @@ export default function AdminSidebar() {
         {/* LOGO */}
         <div className="flex items-center gap-4 p-6 h-24 border-b border-stone-200 dark:border-white/5">
           <Link
-            href="/admin"
+            href="https://www.instagram.com/juanrumapea_"
             className="flex items-center gap-4 hover:opacity-80 transition-opacity"
           >
             <div className="relative flex items-center justify-center flex-shrink-0 w-11 h-11 bg-white border border-stone-200 rounded-xl p-1.5 shadow-sm dark:shadow-lg dark:shadow-black/20 ring-1 ring-stone-900/5 dark:ring-white/10">
@@ -135,8 +135,8 @@ export default function AdminSidebar() {
             </div>
             <div
               className={`flex flex-col ${isCollapsed
-                  ? "opacity-0 hidden"
-                  : "opacity-100 animate-in fade-in slide-in-from-left-2 duration-300"
+                ? "opacity-0 hidden"
+                : "opacity-100 animate-in fade-in slide-in-from-left-2 duration-300"
                 }`}
             >
               <span className="font-black text-stone-900 dark:text-white text-xl tracking-tight leading-none uppercase italic">
@@ -180,15 +180,15 @@ export default function AdminSidebar() {
                       key={item.path}
                       href={item.path}
                       className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative ${isActive
-                          ? "bg-stone-100 dark:bg-stone-900 text-stone-900 dark:text-white shadow-sm dark:shadow-lg dark:shadow-black/20 border border-stone-200 dark:border-white/5 font-bold"
-                          : "text-stone-600 dark:text-stone-400 hover:bg-stone-100/80 dark:hover:bg-stone-900/50 hover:text-stone-900 dark:hover:text-white border border-transparent font-medium"
+                        ? "bg-stone-100 dark:bg-stone-900 text-stone-900 dark:text-white shadow-sm dark:shadow-lg dark:shadow-black/20 border border-stone-200 dark:border-white/5 font-bold"
+                        : "text-stone-600 dark:text-stone-400 hover:bg-stone-100/80 dark:hover:bg-stone-900/50 hover:text-stone-900 dark:hover:text-white border border-transparent font-medium"
                         }`}
                       title={isCollapsed ? item.name : ""}
                     >
                       <div
                         className={`relative ${isActive
-                            ? "text-amber-500"
-                            : "text-stone-400 dark:text-stone-500 group-hover:text-amber-500"
+                          ? "text-amber-500"
+                          : "text-stone-400 dark:text-stone-500 group-hover:text-amber-500"
                           } transition-colors duration-300`}
                       >
                         <item.icon
