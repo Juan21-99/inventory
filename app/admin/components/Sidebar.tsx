@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -29,23 +29,27 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
+const subscribe = (callback: () => void) => {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+};
+
+const getSnapshot = () => {
+  const saved = localStorage.getItem("sidebar_collapsed");
+  return saved !== null ? saved === "true" : true;
+};
+
+const getServerSnapshot = () => true;
+
 export default function AdminSidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const isCollapsed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebar_collapsed");
-    if (saved !== null) {
-      setIsCollapsed(saved === "true");
-    }
-  }, []);
-
   const toggleCollapse = () => {
-    setIsCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem("sidebar_collapsed", String(next));
-      return next;
-    });
+    const current = getSnapshot();
+    const next = !current;
+    localStorage.setItem("sidebar_collapsed", String(next));
+    window.dispatchEvent(new Event("storage"));
   };
 
   const pathname = usePathname();

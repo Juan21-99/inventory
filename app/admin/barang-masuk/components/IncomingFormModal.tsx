@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import Image from "next/image";
 import {
   Upload,
@@ -36,8 +36,7 @@ interface IncomingFormModalProps {
   locations: LocationRoom[];
 }
 
-export const IncomingFormModal: React.FC<IncomingFormModalProps> = ({
-  isOpen,
+const IncomingFormContent: React.FC<Omit<IncomingFormModalProps, "isOpen">> = ({
   onClose,
   onSubmit,
   items,
@@ -45,62 +44,41 @@ export const IncomingFormModal: React.FC<IncomingFormModalProps> = ({
 }) => {
   const { sources } = useSources();
   const { units } = useUnits();
-  const [formData, setFormData] = useState<IncomingFormData>({
-    transaction_number: "",
-    date: new Date().toISOString().split("T")[0],
-    item_id: "",
-    item_code: "",
-    item_name: "",
-    category: "Elektronik",
-    quantity: 1,
-    unit: "Unit",
-    unit_price: 0,
-    source: "Pengadaan APBD",
-    supplier: "",
-    target_location: locations[0]?.name || "Gudang Logistik & Arsip",
-    received_by: "",
-    document_number: "",
-    notes: "",
-    proofImageFile: null,
-    proofImageUrl: null,
+  const [formData, setFormData] = useState<IncomingFormData>(() => {
+    const randomNum = Math.floor(100 + Math.random() * 900);
+    const initialPrice = items[0]?.price || 0;
+    return {
+      transaction_number: `BM-2026-${randomNum}`,
+      date: new Date().toISOString().split("T")[0],
+      item_id: items[0]?.id || "",
+      item_code: items[0]?.code || "",
+      item_name: items[0]?.name || "",
+      category: items[0]?.category || "Elektronik",
+      quantity: 1,
+      unit: items[0]?.unit || "Unit",
+      unit_price: initialPrice,
+      source: "Pengadaan APBD",
+      supplier: "",
+      target_location: items[0]?.location || locations[0]?.name || "Gudang Logistik & Arsip",
+      received_by: items[0]?.person_in_charge || "",
+      document_number: "",
+      notes: "",
+      proofImageFile: null,
+      proofImageUrl: null,
+    };
   });
 
-  const [displayPrice, setDisplayPrice] = useState<string>("");
-  const [selectedItemMode, setSelectedItemMode] = useState<"existing" | "manual">("existing");
+  const [displayPrice, setDisplayPrice] = useState<string>(() => {
+    const initialPrice = items[0]?.price || 0;
+    return initialPrice ? initialPrice.toLocaleString("id-ID") : "";
+  });
+  const [selectedItemMode, setSelectedItemMode] = useState<"existing" | "manual">(() =>
+    items.length > 0 ? "existing" : "manual"
+  );
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      const randomNum = Math.floor(100 + Math.random() * 900);
-      const initialPrice = items[0]?.price || 0;
-      setFormData({
-        transaction_number: `BM-2026-${randomNum}`,
-        date: new Date().toISOString().split("T")[0],
-        item_id: items[0]?.id || "",
-        item_code: items[0]?.code || "",
-        item_name: items[0]?.name || "",
-        category: items[0]?.category || "Elektronik",
-        quantity: 1,
-        unit: items[0]?.unit || "Unit",
-        unit_price: initialPrice,
-        source: "Pengadaan APBD",
-        supplier: "",
-        target_location: items[0]?.location || locations[0]?.name || "Gudang Logistik & Arsip",
-        received_by: items[0]?.person_in_charge || "",
-        document_number: "",
-        notes: "",
-        proofImageFile: null,
-        proofImageUrl: null,
-      });
-      setDisplayPrice(initialPrice ? initialPrice.toLocaleString("id-ID") : "");
-      setSelectedItemMode(items.length > 0 ? "existing" : "manual");
-      setImagePreview(null);
-      setErrorMsg("");
-    }
-  }, [isOpen, items, locations]);
 
   const handleModeChange = (mode: "existing" | "manual") => {
     setSelectedItemMode(mode);
@@ -230,14 +208,7 @@ export const IncomingFormModal: React.FC<IncomingFormModalProps> = ({
   }));
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Catat Penerimaan Barang Masuk"
-      description="Catat pengadaan atau mutasi penerimaan barang baru ke dalam inventaris Inspektorat."
-      maxWidth="4xl"
-    >
-      <form onSubmit={handleSubmit} className="space-y-5 pt-1">
+    <form onSubmit={handleSubmit} className="space-y-5 pt-1">
         {errorMsg && (
           <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs flex items-center gap-2.5 shadow-lg">
             <XCircle size={17} className="text-red-400 shrink-0" />
@@ -572,7 +543,33 @@ export const IncomingFormModal: React.FC<IncomingFormModalProps> = ({
             {submitting ? "Menyimpan..." : "Simpan Barang Masuk"}
           </button>
         </div>
-      </form>
+    </form>
+  );
+};
+
+export const IncomingFormModal: React.FC<IncomingFormModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  items,
+  locations,
+}) => {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Catat Penerimaan Barang Masuk"
+      description="Catat pengadaan atau mutasi penerimaan barang baru ke dalam inventaris Inspektorat."
+      maxWidth="4xl"
+    >
+      {isOpen && (
+        <IncomingFormContent
+          onClose={onClose}
+          onSubmit={onSubmit}
+          items={items}
+          locations={locations}
+        />
+      )}
     </Modal>
   );
 };

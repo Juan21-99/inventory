@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import Image from "next/image";
 import {
   Upload,
@@ -41,8 +41,7 @@ interface ItemFormModalProps {
   locations: LocationRoom[];
 }
 
-export const ItemFormModal: React.FC<ItemFormModalProps> = ({
-  isOpen,
+const ItemFormContent: React.FC<Omit<ItemFormModalProps, "isOpen">> = ({
   onClose,
   onSubmit,
   editItem,
@@ -50,32 +49,9 @@ export const ItemFormModal: React.FC<ItemFormModalProps> = ({
   locations,
 }) => {
   const { units } = useUnits();
-  const [formData, setFormData] = useState<ItemFormData>({
-    code: "",
-    name: "",
-    category: categories[0]?.name || "Elektronik",
-    stock: 1,
-    unit: "Unit",
-    condition: "Baik",
-    location: locations[0]?.name || "Ruang Inspektur",
-    person_in_charge: "",
-    received_at: new Date().toISOString().split("T")[0],
-    price: 0,
-    notes: "",
-    imageFile: null,
-    imageUrl: null,
-  });
-
-  const [displayPrice, setDisplayPrice] = useState<string>("");
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Sync form data when editItem changes or modal opens
-  useEffect(() => {
+  const [formData, setFormData] = useState<ItemFormData>(() => {
     if (editItem) {
-      setFormData({
+      return {
         code: editItem.code,
         name: editItem.name,
         category: editItem.category,
@@ -89,30 +65,34 @@ export const ItemFormModal: React.FC<ItemFormModalProps> = ({
         notes: editItem.notes || "",
         imageFile: null,
         imageUrl: editItem.image_url || null,
-      });
-      setDisplayPrice(editItem.price ? editItem.price.toLocaleString("id-ID") : "");
-      setImagePreview(editItem.image_url || null);
-    } else {
-      setFormData({
-        code: `INV-${Date.now().toString().slice(-4)}`,
-        name: "",
-        category: categories[0]?.name || "Elektronik",
-        stock: 1,
-        unit: "Unit",
-        condition: "Baik",
-        location: locations[0]?.name || "Ruang Sekretariat",
-        person_in_charge: "",
-        received_at: new Date().toISOString().split("T")[0],
-        price: 0,
-        notes: "",
-        imageFile: null,
-        imageUrl: null,
-      });
-      setDisplayPrice("");
-      setImagePreview(null);
+      };
     }
-    setErrorMsg("");
-  }, [editItem, isOpen, categories, locations]);
+    return {
+      code: `INV-${Date.now().toString().slice(-4)}`,
+      name: "",
+      category: categories[0]?.name || "Elektronik",
+      stock: 1,
+      unit: "Unit",
+      condition: "Baik",
+      location: locations[0]?.name || "Ruang Sekretariat",
+      person_in_charge: "",
+      received_at: new Date().toISOString().split("T")[0],
+      price: 0,
+      notes: "",
+      imageFile: null,
+      imageUrl: null,
+    };
+  });
+
+  const [displayPrice, setDisplayPrice] = useState<string>(() =>
+    editItem?.price ? editItem.price.toLocaleString("id-ID") : ""
+  );
+  const [imagePreview, setImagePreview] = useState<string | null>(() =>
+    editItem?.image_url || null
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handlePriceInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, "");
@@ -188,14 +168,7 @@ export const ItemFormModal: React.FC<ItemFormModalProps> = ({
   }));
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={editItem ? "Edit Data Barang / Aset" : "Tambah Barang / Aset Baru"}
-      description="Lengkapi formulir pencatatan inventaris dan logistik aset Inspektorat."
-      maxWidth="4xl"
-    >
-      <form onSubmit={handleSubmit} className="space-y-5 pt-1">
+    <form onSubmit={handleSubmit} className="space-y-5 pt-1">
         {errorMsg && (
           <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 text-xs flex items-center gap-2.5 shadow-sm">
             <XCircle size={17} className="text-red-500 dark:text-red-400 shrink-0" />
@@ -488,7 +461,36 @@ export const ItemFormModal: React.FC<ItemFormModalProps> = ({
             {submitting ? "Menyimpan..." : editItem ? "Simpan Perubahan" : "Tambah Barang"}
           </button>
         </div>
-      </form>
+    </form>
+  );
+};
+
+export const ItemFormModal: React.FC<ItemFormModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  editItem,
+  categories,
+  locations,
+}) => {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={editItem ? "Edit Data Barang / Aset" : "Tambah Barang / Aset Baru"}
+      description="Lengkapi formulir pencatatan inventaris dan logistik aset Inspektorat."
+      maxWidth="4xl"
+    >
+      {isOpen && (
+        <ItemFormContent
+          key={editItem?.id ?? "new"}
+          onClose={onClose}
+          onSubmit={onSubmit}
+          editItem={editItem}
+          categories={categories}
+          locations={locations}
+        />
+      )}
     </Modal>
   );
 };

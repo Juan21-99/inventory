@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback, memo } from "react";
-import { FloatingPortal } from "@floating-ui/react";
+import React, { useState, useRef, useEffect, useCallback, memo, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import {
   Coffee,
@@ -53,11 +53,14 @@ const itemVariants = {
   },
 };
 
+const emptySubscribe = () => () => {};
+
 function CategoryDropdownComponent({
   value,
   options,
   onChange,
 }: Readonly<CategoryDropdownProps>) {
+  const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [position, setPosition] = useState<{
@@ -158,8 +161,9 @@ function CategoryDropdownComponent({
           </motion.div>
         </button>
 
-        <FloatingPortal>
-          <AnimatePresence>
+        {isClient &&
+          createPortal(
+            <AnimatePresence>
             {isOpen && position && (
               <motion.div
                 ref={dropdownRef}
@@ -274,8 +278,9 @@ function CategoryDropdownComponent({
                 </motion.div>
               </motion.div>
             )}
-          </AnimatePresence>
-        </FloatingPortal>
+          </AnimatePresence>,
+          document.body
+        )}
       </div>
     </MotionConfig>
   );
