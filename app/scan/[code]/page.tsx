@@ -11,12 +11,13 @@ import {
   DollarSign,
   FileText,
   ShieldCheck,
-  Tag,
   AlertTriangle,
   ArrowLeft,
   ExternalLink,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { InventoryItem } from "@/app/admin/types/item.types";
+import { SystemSettingsData } from "@/app/admin/hooks/useSettings";
 
 interface ScanPageProps {
   params: Promise<{ code: string }>;
@@ -27,22 +28,24 @@ export default function AssetScanVerificationPage({ params }: ScanPageProps) {
   const rawCode = resolvedParams.code;
   const decodedCode = decodeURIComponent(rawCode);
 
-  const [item, setItem] = useState<any>(null);
-  const [settings, setSettings] = useState<any>(null);
+  const [item, setItem] = useState<InventoryItem | null>(null);
+  const [settings, setSettings] = useState<SystemSettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    let ignore = false;
+
     async function fetchData() {
       try {
-        setLoading(true);
-
         // 1. Fetch Item from Supabase
         const { data: itemData, error: itemError } = await supabase
           .from("items")
           .select("*")
           .eq("code", decodedCode)
           .maybeSingle();
+
+        if (ignore) return;
 
         if (itemError || !itemData) {
           setNotFound(true);
@@ -57,18 +60,22 @@ export default function AssetScanVerificationPage({ params }: ScanPageProps) {
           .limit(1)
           .maybeSingle();
 
-        if (settingsData) {
+        if (!ignore && settingsData) {
           setSettings(settingsData);
         }
       } catch (err) {
         console.error("Error fetching asset scan data:", err);
-        setNotFound(true);
+        if (!ignore) setNotFound(true);
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     }
 
-    fetchData();
+    void fetchData();
+
+    return () => {
+      ignore = true;
+    };
   }, [decodedCode]);
 
   return (
