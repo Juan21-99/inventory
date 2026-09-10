@@ -10,7 +10,6 @@ export function useLocations() {
 
   // Fetch locations directly from Supabase table 'locations'
   const fetchLocations = useCallback(async () => {
-    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("locations")
@@ -27,7 +26,29 @@ export function useLocations() {
   }, []);
 
   useEffect(() => {
-    fetchLocations();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error } = await supabase
+          .from("locations")
+          .select("*")
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+        if (!ignore && data) {
+          setLocations(data);
+        }
+      } catch (err) {
+        console.error("Error fetching locations from Supabase:", err);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
 
     const channelId = `locations-sync-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -36,15 +57,16 @@ export function useLocations() {
         "postgres_changes",
         { event: "*", schema: "public", table: "locations" },
         () => {
-          fetchLocations();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchLocations]);
+  }, []);
 
   // Add location to Supabase
   const addLocation = async (dataOrName: string | { name: string; floor?: string; description?: string }, floor?: string) => {

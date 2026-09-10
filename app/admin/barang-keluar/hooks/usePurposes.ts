@@ -15,8 +15,8 @@ export function usePurposes() {
   const [loading, setLoading] = useState(true);
 
   // Fetch purposes directly from Supabase table 'distribution_purposes'
-  const fetchPurposes = useCallback(async () => {
-    setLoading(true);
+  const fetchPurposes = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const { data, error } = await supabase
         .from("distribution_purposes")
@@ -28,7 +28,7 @@ export function usePurposes() {
         setPurposes(data);
       }
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : (err as any)?.message || JSON.stringify(err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
       console.warn("Notice fetching distribution purposes from Supabase:", errorMsg);
     } finally {
       setLoading(false);
@@ -36,7 +36,30 @@ export function usePurposes() {
   }, []);
 
   useEffect(() => {
-    fetchPurposes();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error } = await supabase
+          .from("distribution_purposes")
+          .select("*")
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+        if (!ignore && data) {
+          setPurposes(data);
+        }
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.warn("Notice fetching distribution purposes from Supabase:", errorMsg);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
 
     const channelId = `purposes-sync-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -45,15 +68,16 @@ export function usePurposes() {
         "postgres_changes",
         { event: "*", schema: "public", table: "distribution_purposes" },
         () => {
-          fetchPurposes();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchPurposes]);
+  }, []);
 
   // Add distribution purpose to Supabase
   const addPurpose = async (name: string, description?: string) => {

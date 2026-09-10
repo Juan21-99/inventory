@@ -30,8 +30,6 @@ export function useUsers() {
 
   // Fetch users from Supabase profiles table
   const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
       const { data, error: sbErr } = await supabase
         .from("profiles")
@@ -52,7 +50,32 @@ export function useUsers() {
 
   // Subscribe to Realtime Postgres Changes on profiles table
   useEffect(() => {
-    fetchUsers();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error: sbErr } = await supabase
+          .from("profiles")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (sbErr) throw sbErr;
+        if (data && !ignore) {
+          setUsers(data);
+        }
+      } catch (err: unknown) {
+        console.error("Error fetching users:", err);
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : "Gagal memuat data pengguna.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
 
     const channelId = `profiles-sync-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -61,15 +84,16 @@ export function useUsers() {
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },
         () => {
-          fetchUsers();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchUsers]);
+  }, []);
 
   // Create new user account via API
   const addUser = async (userData: CreateUserData): Promise<SystemUser> => {
@@ -110,7 +134,7 @@ export function useUsers() {
     updates: Partial<SystemUser>,
     avatarFile?: File | null
   ) => {
-    let finalUpdates = { ...updates };
+    const finalUpdates = { ...updates };
 
     if (avatarFile) {
       const uploaded = await uploadAvatar(avatarFile, `user-${id}-${Date.now()}`);

@@ -11,8 +11,6 @@ export function useOutgoing() {
 
   // Fetch transactions directly from Supabase table 'outgoing_transactions'
   const fetchOutgoing = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
       const { data, error: sbError } = await supabase
         .from("outgoing_transactions")
@@ -36,7 +34,33 @@ export function useOutgoing() {
 
   // Subscribe to Realtime Postgres Changes
   useEffect(() => {
-    fetchOutgoing();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error: sbError } = await supabase
+          .from("outgoing_transactions")
+          .select("*")
+          .order("date", { ascending: false });
+
+        if (sbError) throw sbError;
+
+        if (data && !ignore) {
+          setOutgoing(data);
+        }
+      } catch (err: unknown) {
+        console.error("Error fetching outgoing transactions from Supabase:", err);
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : "Gagal memuat data barang keluar.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
 
     const channelId = `outgoing-sync-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -45,15 +69,16 @@ export function useOutgoing() {
         "postgres_changes",
         { event: "*", schema: "public", table: "outgoing_transactions" },
         () => {
-          fetchOutgoing();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchOutgoing]);
+  }, []);
 
   // Add new outgoing transaction to Supabase
   const addOutgoing = async (formData: OutgoingFormData): Promise<OutgoingTransaction> => {

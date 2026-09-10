@@ -16,7 +16,6 @@ export function useSources() {
 
   // Fetch sources directly from Supabase table 'procurement_sources'
   const fetchSources = useCallback(async () => {
-    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("procurement_sources")
@@ -28,7 +27,7 @@ export function useSources() {
         setSources(data);
       }
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : (err as any)?.message || JSON.stringify(err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
       console.warn("Notice fetching procurement sources from Supabase:", errorMsg);
     } finally {
       setLoading(false);
@@ -36,7 +35,30 @@ export function useSources() {
   }, []);
 
   useEffect(() => {
-    fetchSources();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error } = await supabase
+          .from("procurement_sources")
+          .select("*")
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+        if (!ignore && data) {
+          setSources(data);
+        }
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.warn("Notice fetching procurement sources from Supabase:", errorMsg);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
 
     const channelId = `sources-sync-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -45,15 +67,16 @@ export function useSources() {
         "postgres_changes",
         { event: "*", schema: "public", table: "procurement_sources" },
         () => {
-          fetchSources();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchSources]);
+  }, []);
 
   // Add procurement source to Supabase
   const addSource = async (name: string, description?: string) => {

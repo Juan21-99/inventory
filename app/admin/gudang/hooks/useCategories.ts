@@ -5,16 +5,20 @@ import { supabase } from "@/lib/supabase";
 import { Category } from "../../types/item.types";
 
 // Helper to clean malformed JSON names if any were stored
-export function cleanCategoryName(rawName: string | any): string {
+export function cleanCategoryName(rawName: unknown): string {
   if (!rawName) return "-";
-  if (typeof rawName === "object" && rawName !== null) {
-    return rawName.name || JSON.stringify(rawName);
+  if (typeof rawName === "object" && rawName !== null && "name" in rawName) {
+    const obj = rawName as { name?: unknown };
+    return typeof obj.name === "string" ? obj.name : JSON.stringify(rawName);
   }
   const str = String(rawName).trim();
   if (str.startsWith('{"name":') || (str.startsWith("{") && str.endsWith("}"))) {
     try {
-      const parsed = JSON.parse(str);
-      if (parsed && parsed.name) return parsed.name;
+      const parsed: unknown = JSON.parse(str);
+      if (parsed && typeof parsed === "object" && "name" in parsed) {
+        const nameVal = (parsed as { name?: unknown }).name;
+        if (typeof nameVal === "string") return nameVal;
+      }
     } catch {
       // Keep as is
     }
@@ -28,7 +32,6 @@ export function useCategories() {
 
   // Fetch categories directly from Supabase table 'categories'
   const fetchCategories = useCallback(async () => {
-    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("categories")
@@ -52,7 +55,33 @@ export function useCategories() {
   }, []);
 
   useEffect(() => {
-    fetchCategories();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error } = await supabase
+          .from("categories")
+          .select("*")
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+        if (!ignore && data) {
+          const sanitized = data.map((c) => ({
+            ...c,
+            name: cleanCategoryName(c.name),
+          }));
+          setCategories(sanitized);
+        }
+      } catch (err) {
+        console.error("Error fetching categories from Supabase:", err);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
 
     const channelId = `categories-sync-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -61,15 +90,16 @@ export function useCategories() {
         "postgres_changes",
         { event: "*", schema: "public", table: "categories" },
         () => {
-          fetchCategories();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchCategories]);
+  }, []);
 
   // Add category to Supabase (robust against string or object parameter)
   const addCategory = async (nameOrObj: string | { name: string; description?: string }, description?: string) => {
@@ -102,7 +132,7 @@ export function useCategories() {
 
   // Update category in Supabase
   const updateCategory = async (id: string, updates: Partial<Category> | { name: string }) => {
-    const finalUpdates: any = { ...updates };
+    const finalUpdates: Partial<Category> = { ...updates };
     if (finalUpdates.name) {
       finalUpdates.name = cleanCategoryName(finalUpdates.name);
     }

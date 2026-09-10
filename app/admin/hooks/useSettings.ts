@@ -36,7 +36,6 @@ export function useSettings() {
 
   const fetchSettings = useCallback(async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from("system_settings")
         .select("*")
@@ -60,7 +59,7 @@ export function useSettings() {
         });
       }
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : (err as any)?.message || JSON.stringify(err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
       console.warn("Notice fetching system settings:", errorMsg);
     } finally {
       setLoading(false);
@@ -68,7 +67,43 @@ export function useSettings() {
   }, []);
 
   useEffect(() => {
-    fetchSettings();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error } = await supabase
+          .from("system_settings")
+          .select("*")
+          .limit(1)
+          .single();
+
+        if (!ignore && !error && data) {
+          setSettings({
+            id: data.id,
+            institution_name: data.institution_name || "",
+            sub_name: data.sub_name || "",
+            address: data.address || "",
+            phone: data.phone || "",
+            email: data.email || "",
+            website: data.website || "",
+            head_officer: data.head_officer || "",
+            head_nip: data.head_nip || "",
+            head_position: data.head_position || "Pejabat Penatausahaan Pengguna Barang",
+            min_stock_alert: Number(data.min_stock_alert) || 5,
+            auto_code_prefix: data.auto_code_prefix || "INV-",
+          });
+        }
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.warn("Notice fetching system settings:", errorMsg);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
 
     const channelId = `settings-sync-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -77,15 +112,16 @@ export function useSettings() {
         "postgres_changes",
         { event: "*", schema: "public", table: "system_settings" },
         () => {
-          fetchSettings();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchSettings]);
+  }, []);
 
   return {
     settings,

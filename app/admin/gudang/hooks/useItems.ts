@@ -11,8 +11,6 @@ export function useItems() {
 
   // Fetch items directly from Supabase table 'items'
   const fetchItems = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
       const { data, error: sbError } = await supabase
         .from("items")
@@ -25,21 +23,21 @@ export function useItems() {
 
       if (data) {
         // Map database fields to application state
-        const mappedItems: InventoryItem[] = data.map((item: any) => ({
-          id: item.id,
-          code: item.code,
-          name: item.name,
-          category: item.category_name || item.category || "Elektronik",
-          stock: item.stock || 0,
-          unit: item.unit || "Unit",
-          condition: item.condition || "Baik",
-          location: item.location_name || item.location || "Ruang Inspektur",
-          person_in_charge: item.person_in_charge || "",
-          received_at: item.received_at || new Date().toISOString().split("T")[0],
+        const mappedItems: InventoryItem[] = data.map((item: Record<string, unknown>) => ({
+          id: String(item.id || ""),
+          code: String(item.code || ""),
+          name: String(item.name || ""),
+          category: String(item.category_name || item.category || "Elektronik"),
+          stock: Number(item.stock) || 0,
+          unit: String(item.unit || "Unit"),
+          condition: (item.condition as InventoryItem["condition"]) || "Baik",
+          location: String(item.location_name || item.location || "Ruang Inspektur"),
+          person_in_charge: String(item.person_in_charge || ""),
+          received_at: String(item.received_at || new Date().toISOString().split("T")[0]),
           price: Number(item.price) || 0,
-          image_url: item.image_url || null,
-          notes: item.description || null,
-          created_at: item.created_at,
+          image_url: (item.image_url as string) || null,
+          notes: (item.description as string) || null,
+          created_at: item.created_at as string | undefined,
         }));
         setItems(mappedItems);
       }
@@ -53,7 +51,49 @@ export function useItems() {
 
   // Subscribe to Realtime Postgres Changes
   useEffect(() => {
-    fetchItems();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error: sbError } = await supabase
+          .from("items")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (sbError) throw sbError;
+
+        if (data && !ignore) {
+          const mappedItems: InventoryItem[] = data.map((item: Record<string, unknown>) => ({
+            id: String(item.id || ""),
+            code: String(item.code || ""),
+            name: String(item.name || ""),
+            category: String(item.category_name || item.category || "Elektronik"),
+            stock: Number(item.stock) || 0,
+            unit: String(item.unit || "Unit"),
+            condition: (item.condition as InventoryItem["condition"]) || "Baik",
+            location: String(item.location_name || item.location || "Ruang Inspektur"),
+            person_in_charge: String(item.person_in_charge || ""),
+            received_at: String(item.received_at || new Date().toISOString().split("T")[0]),
+            price: Number(item.price) || 0,
+            image_url: (item.image_url as string) || null,
+            notes: (item.description as string) || null,
+            created_at: item.created_at as string | undefined,
+          }));
+          setItems(mappedItems);
+        }
+      } catch (err: unknown) {
+        console.error("Error fetching items from Supabase:", err);
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : "Gagal memuat data aset.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
 
     const channelId = `items-sync-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -62,15 +102,16 @@ export function useItems() {
         "postgres_changes",
         { event: "*", schema: "public", table: "items" },
         () => {
-          fetchItems();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchItems]);
+  }, []);
 
   // Add new item to Supabase
   const addItem = async (formData: ItemFormData): Promise<InventoryItem> => {

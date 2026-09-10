@@ -16,7 +16,6 @@ export function useUnits() {
 
   // Fetch item units directly from Supabase table 'item_units'
   const fetchUnits = useCallback(async () => {
-    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("item_units")
@@ -28,7 +27,7 @@ export function useUnits() {
         setUnits(data);
       }
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : (err as any)?.message || JSON.stringify(err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
       console.warn("Notice fetching item units from Supabase:", errorMsg);
     } finally {
       setLoading(false);
@@ -36,7 +35,30 @@ export function useUnits() {
   }, []);
 
   useEffect(() => {
-    fetchUnits();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error } = await supabase
+          .from("item_units")
+          .select("*")
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+        if (!ignore && data) {
+          setUnits(data);
+        }
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.warn("Notice fetching item units from Supabase:", errorMsg);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
 
     const channelId = `units-sync-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -45,15 +67,16 @@ export function useUnits() {
         "postgres_changes",
         { event: "*", schema: "public", table: "item_units" },
         () => {
-          fetchUnits();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchUnits]);
+  }, []);
 
   // Add item unit to Supabase
   const addUnit = async (name: string, description?: string) => {

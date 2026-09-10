@@ -20,7 +20,6 @@ import {
   FileText,
   Boxes,
   Key,
-  Mail,
   Phone,
   Eye,
   EyeOff,
@@ -28,11 +27,8 @@ import {
   IdCard,
   Upload,
   Camera,
-  Check,
-  Sparkles,
   Truck,
   Send,
-  Briefcase,
   AlertTriangle,
   Loader2,
 } from "lucide-react";
@@ -40,7 +36,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { useCategories } from "../gudang/hooks/useCategories";
 import { useLocations } from "../gudang/hooks/useLocations";
-import { useUsers, CreateUserData } from "./hooks/useUsers";
+import { useUsers, CreateUserData, SystemUser } from "./hooks/useUsers";
 import { useSources } from "../barang-masuk/hooks/useSources";
 import { usePurposes } from "../barang-keluar/hooks/usePurposes";
 import { useStatuses } from "../barang-keluar/hooks/useStatuses";
@@ -63,7 +59,7 @@ export default function SettingsPage() {
   const { user, profile, refreshProfile } = useAuth();
   const { categories, addCategory, updateCategory, deleteCategory } = useCategories();
   const { locations, addLocation, updateLocation, deleteLocation } = useLocations();
-  const { users, loading: usersLoading, addUser, updateUser, deleteUser } = useUsers();
+  const { users, addUser, updateUser, deleteUser } = useUsers();
   const { sources, addSource, updateSource, deleteSource } = useSources();
   const { purposes, addPurpose, updatePurpose, deletePurpose } = usePurposes();
   const { statuses, addStatus, updateStatus, deleteStatus } = useStatuses();
@@ -75,7 +71,6 @@ export default function SettingsPage() {
   // Success / Alert message toast
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveMessage, setSaveMessage] = useState("Pengaturan berhasil disimpan!");
-  const [loading, setLoading] = useState(true);
 
   // Settings Record ID from Supabase
   const [settingsId, setSettingsId] = useState<string | null>(null);
@@ -179,7 +174,6 @@ export default function SettingsPage() {
   // Fetch Settings from Supabase Table 'system_settings'
   const fetchSettings = useCallback(async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from("system_settings")
         .select("*")
@@ -212,13 +206,50 @@ export default function SettingsPage() {
       }
     } catch (err) {
       console.error("Error fetching system settings from Supabase:", err);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchSettings();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error } = await supabase
+          .from("system_settings")
+          .select("*")
+          .limit(1)
+          .single();
+
+        if (!ignore && !error && data) {
+          setSettingsId(data.id);
+          setInstansiData({
+            name: data.institution_name || "",
+            subName: data.sub_name || "",
+            address: data.address || "",
+            phone: data.phone || "",
+            email: data.email || "",
+            website: data.website || "",
+            headOfficer: data.head_officer || "",
+            headNip: data.head_nip || "",
+            headPosition: data.head_position || "",
+            logisticsOfficer: data.logistics_officer || "",
+            logisticsNip: data.logistics_nip || "",
+            logisticsPosition: data.logistics_position || "",
+          });
+
+          setPrefData({
+            lowStockThreshold: data.low_stock_threshold ?? 2,
+            codePrefixItem: data.code_prefix_item || "INV",
+            codePrefixIncoming: data.code_prefix_incoming || "BM",
+            codePrefixOutgoing: data.code_prefix_outgoing || "BK",
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching system settings from Supabase:", err);
+      }
+    }
+
+    void load();
 
     // Subscribe to realtime updates on system_settings
     const channel = supabase
@@ -227,15 +258,16 @@ export default function SettingsPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "system_settings" },
         () => {
-          fetchSettings();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchSettings]);
+  }, []);
 
   const triggerSaveNotification = (msg = "Pengaturan berhasil disimpan!") => {
     setSaveMessage(msg);
@@ -356,7 +388,7 @@ export default function SettingsPage() {
   };
 
   // Handle Buka Modal Edit Pengguna
-  const handleOpenEditUser = (u: any) => {
+  const handleOpenEditUser = (u: SystemUser) => {
     setEditingUserId(u.id);
     setEditUserData({
       full_name: u.full_name || "",

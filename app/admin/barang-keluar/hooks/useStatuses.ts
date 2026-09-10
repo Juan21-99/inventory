@@ -15,8 +15,8 @@ export function useStatuses() {
   const [loading, setLoading] = useState(true);
 
   // Fetch statuses directly from Supabase table 'outgoing_statuses'
-  const fetchStatuses = useCallback(async () => {
-    setLoading(true);
+  const fetchStatuses = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const { data, error } = await supabase
         .from("outgoing_statuses")
@@ -28,7 +28,7 @@ export function useStatuses() {
         setStatuses(data);
       }
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : (err as any)?.message || JSON.stringify(err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
       console.warn("Notice fetching outgoing statuses from Supabase:", errorMsg);
     } finally {
       setLoading(false);
@@ -36,7 +36,30 @@ export function useStatuses() {
   }, []);
 
   useEffect(() => {
-    fetchStatuses();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error } = await supabase
+          .from("outgoing_statuses")
+          .select("*")
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+        if (!ignore && data) {
+          setStatuses(data);
+        }
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.warn("Notice fetching outgoing statuses from Supabase:", errorMsg);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
 
     const channelId = `statuses-sync-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -45,15 +68,16 @@ export function useStatuses() {
         "postgres_changes",
         { event: "*", schema: "public", table: "outgoing_statuses" },
         () => {
-          fetchStatuses();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchStatuses]);
+  }, []);
 
   // Add outgoing status to Supabase
   const addStatus = async (name: string, description?: string) => {

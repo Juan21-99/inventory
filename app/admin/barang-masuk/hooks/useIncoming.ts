@@ -11,8 +11,6 @@ export function useIncoming() {
 
   // Fetch transactions directly from Supabase table 'incoming_transactions'
   const fetchIncoming = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
       const { data, error: sbError } = await supabase
         .from("incoming_transactions")
@@ -36,7 +34,33 @@ export function useIncoming() {
 
   // Subscribe to Realtime Postgres Changes
   useEffect(() => {
-    fetchIncoming();
+    let ignore = false;
+
+    async function load() {
+      try {
+        const { data, error: sbError } = await supabase
+          .from("incoming_transactions")
+          .select("*")
+          .order("date", { ascending: false });
+
+        if (sbError) throw sbError;
+
+        if (data && !ignore) {
+          setIncoming(data);
+        }
+      } catch (err: unknown) {
+        console.error("Error fetching incoming transactions from Supabase:", err);
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : "Gagal memuat data barang masuk.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
 
     const channelId = `incoming-sync-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
@@ -45,15 +69,16 @@ export function useIncoming() {
         "postgres_changes",
         { event: "*", schema: "public", table: "incoming_transactions" },
         () => {
-          fetchIncoming();
+          void load();
         }
       )
       .subscribe();
 
     return () => {
+      ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [fetchIncoming]);
+  }, []);
 
   // Add new incoming transaction to Supabase
   const addIncoming = async (formData: IncomingFormData): Promise<IncomingTransaction> => {
@@ -82,7 +107,7 @@ export function useIncoming() {
       if (existingItem) {
         itemId = existingItem.id;
       } else {
-        const itemPayload: Record<string, any> = {
+        const itemPayload: Record<string, unknown> = {
           code: formData.item_code.trim().toUpperCase(),
           name: formData.item_name.trim(),
           category_name: formData.category,
